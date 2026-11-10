@@ -198,6 +198,25 @@ void MagnetometerModule::applySoftIron2D(float &fx, float &fy) {
 }
 
 void MagnetometerModule::initSensors() {
+
+#ifdef HELTEC_V4
+    // Temporary sensorless V4 test.
+    // No external magnetometer or accelerometer connected.
+
+    haveMag = false;
+    haveAccel = false;
+    magBus = nullptr;
+    headingIsValid = false;
+
+    // Prevent runOnce() from repeating sensor setup.
+    sensorsInitialized = true;
+
+    LOG_INFO("[Magnetometer] V4 SENSORLESS PATCH ACTIVE");
+    LOG_INFO("[Magnetometer] Skipping all external sensors.");
+
+    return;
+#endif
+
     sensorsInitialized = false;
 
     LOG_INFO("[Magnetometer] ===== initSensors() START =====");
