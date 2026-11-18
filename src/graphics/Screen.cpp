@@ -735,10 +735,22 @@ int32_t Screen::runOnce()
     // Show boot screen for first logo_timeout seconds, then switch to normal operation.
     // serialSinceMsec adjusts for additional serial wait time during nRF52 bootup
     static bool showingBootScreen = true;
+#if defined(HELTEC_V4)
+    // Start Pebble only when the LoRa region was already configured before
+    // this boot's normal onboarding. A newly configured unit remains in the
+    // Meshtastic UI until its next restart.
+    static bool neonPebbleStartupPending = false;
+#endif
     if (showingBootScreen && (millis() > (logo_timeout + serialSinceMsec))) {
         LOG_INFO("Done with boot screen");
         stopBootScreen();
         showingBootScreen = false;
+#if defined(HELTEC_V4)
+        if (config.lora.region != meshtastic_Config_LoRaConfig_RegionCode_UNSET &&
+            rebootAtMsec == 0 && !error_code) {
+            neonPebbleStartupPending = true;
+        }
+#endif
     }
 
 #ifdef USERPREFS_OEM_TEXT
@@ -828,6 +840,16 @@ int32_t Screen::runOnce()
             LOG_ERROR("Invalid screen cmd");
         }
     }
+
+#if defined(HELTEC_V4)
+    // After queued STOP_BOOT_SCREEN has installed the regular frames, present
+    // Neon Pebble's menu. Never cover the initial Meshtastic region picker.
+    if (neonPebbleStartupPending && screenOn &&
+        !NotificationRenderer::isOverlayBannerShowing() && rebootAtMsec == 0) {
+        neonPebbleStartupPending = false;
+        menuHandler::neonPebbleMainMenu();
+    }
+#endif
 
     if (!screenOn) { // If we didn't just wake and the screen is still off, then
                      // stop updating until it is on again

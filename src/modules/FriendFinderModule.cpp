@@ -556,6 +556,8 @@ int FriendFinderModule::handleInputEvent(const InputEvent *ev)
         }
         if (isBack) {
             setState(FriendFinderState::IDLE);
+            graphics::menuHandler::menuQueue = graphics::menuHandler::neon_pebble_main_menu;
+            screen->runNow();
             return 1;
         }
         return 0;
