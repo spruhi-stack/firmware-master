@@ -468,6 +468,105 @@ void menuHandler::messageResponseMenu()
     screen->showOverlayBanner(bannerOptions);
 }
 
+
+/*
+ * Neon Pebble's first-stage launcher. It deliberately reuses Meshtastic's
+ * overlay picker, so the built-in OLED and existing buttons still work.
+ * The colour GC9A01 UI will be a separate display implementation later.
+ */
+void menuHandler::neonPebbleMainMenu()
+{
+    static const char *options[] = {
+        "Radar", "Friends", "Meet Up", "Saved Places", "Settings", "Meshtastic"
+    };
+    BannerOverlayOptions bannerOptions;
+    bannerOptions.message = "Neon Pebble";
+    bannerOptions.optionsArrayPtr = options;
+    bannerOptions.optionsCount = sizeof(options) / sizeof(options[0]);
+    bannerOptions.bannerCallback = [](int selected) -> void {
+        switch (selected) {
+        case 0: // Radar: existing all-friends map
+            if (friendFinderModule)
+                friendFinderModule->setState(FriendFinderState::FRIEND_MAP);
+            break;
+        case 1: // Reuse Friend Finder pairing/tracking for now
+            menuQueue = friend_finder_base_menu;
+            screen->runNow();
+            break;
+        case 2:
+            menuQueue = neon_pebble_meet_menu;
+            screen->runNow();
+            break;
+        case 3:
+            menuQueue = friend_finder_places_menu;
+            screen->runNow();
+            break;
+        case 4:
+            menuQueue = neon_pebble_settings_menu;
+            screen->runNow();
+            break;
+        case 5: // Close the launcher to reach the original Meshtastic UI
+        default:
+            break;
+        }
+    };
+    screen->showOverlayBanner(bannerOptions);
+}
+
+void menuHandler::neonPebbleMeetMenu()
+{
+    // The network meet-up request will be implemented in a later release.
+    static const char *options[] = {"Back"};
+    BannerOverlayOptions bannerOptions;
+    bannerOptions.message = "Meet Up\\nComing soon";
+    bannerOptions.optionsArrayPtr = options;
+    bannerOptions.optionsCount = 1;
+    bannerOptions.bannerCallback = [](int) -> void {
+        menuQueue = neon_pebble_main_menu;
+        screen->runNow();
+    };
+    screen->showOverlayBanner(bannerOptions);
+}
+
+void menuHandler::neonPebbleSettingsMenu()
+{
+    static const char *options[] = {
+        "Back", "Compass Cal", "Screen Options", "Power",
+        "Dev Tools", "Meshtastic System"
+    };
+    BannerOverlayOptions bannerOptions;
+    bannerOptions.message = "Pebble Settings";
+    bannerOptions.optionsArrayPtr = options;
+    bannerOptions.optionsCount = sizeof(options) / sizeof(options[0]);
+    bannerOptions.bannerCallback = [](int selected) -> void {
+        switch (selected) {
+        case 0:
+            menuQueue = neon_pebble_main_menu;
+            break;
+        case 1:
+            if (friendFinderModule)
+                friendFinderModule->setState(FriendFinderState::COMPASS_SCREEN);
+            return;
+        case 2:
+            menuQueue = screen_options_menu;
+            break;
+        case 3:
+            menuQueue = power_menu;
+            break;
+        case 4:
+            menuQueue = friend_finder_dev_tools_menu;
+            break;
+        case 5:
+            menuQueue = system_base_menu;
+            break;
+        default:
+            return;
+        }
+        screen->runNow();
+    };
+    screen->showOverlayBanner(bannerOptions);
+}
+
 void menuHandler::homeBaseMenu()
 {
     enum optionsNumbers { Back, Backlight, Position, Preset, Freetext, FriendFinder, Bluetooth, Sleep, enumEnd };
@@ -500,7 +599,7 @@ void menuHandler::homeBaseMenu()
         optionsEnumArray[options++] = Freetext;
     }
     
-    optionsArray[options] = "Friend Finder";
+    optionsArray[options] = "Neon Pebble";
     optionsEnumArray[options++] = FriendFinder;
 
     optionsArray[options] = "Bluetooth Toggle";
@@ -547,7 +646,7 @@ void menuHandler::homeBaseMenu()
             cannedMessageModule->LaunchFreetextWithDestination(NODENUM_BROADCAST);
         } 
         else if (selected == FriendFinder) {
-            menuQueue = friend_finder_base_menu;
+            menuQueue = neon_pebble_main_menu;
             screen->runNow();
         } else if (selected == Bluetooth) {
             menuQueue = bluetooth_toggle_menu;
@@ -1574,8 +1673,10 @@ void menuHandler::friendFinderBaseMenu()
     bannerOptions.optionsArrayPtr = pointers.data();
     bannerOptions.optionsCount = pointers.size();
     bannerOptions.bannerCallback = [](int selected) -> void {
-        if (selected == 0) { // Back
+        if (selected == 0) { // Back to Neon Pebble
             if (friendFinderModule) friendFinderModule->setState(FriendFinderState::IDLE);
+            menuQueue = neon_pebble_main_menu;
+            screen->runNow();
         } else if (selected == 1) { // Start Pairing
             if (friendFinderModule) friendFinderModule->beginPairing();
         } else if (selected == 2) { // Track a Friend
@@ -1823,7 +1924,7 @@ void menuHandler::friendFinderMapMenu()
             }
         } else if (selected == 2) { // Exit Map
             if (friendFinderModule) {
-                menuQueue = friend_finder_base_menu;
+                menuQueue = neon_pebble_main_menu;
                 friendFinderModule->setState(FriendFinderState::IDLE); // Ensure we leave map state
                 screen->runNow();
             }
@@ -1921,7 +2022,7 @@ void menuHandler::friendFinderPlacesMenu()
     bannerOptions.optionsCount = pointers.size();
     bannerOptions.bannerCallback = [](int selected) -> void {
         if (selected == 0) { // Back
-            menuQueue = friend_finder_base_menu;
+            menuQueue = neon_pebble_main_menu;
             screen->runNow();
         } else if (selected == 1) { // Save Current Location
             if (friendFinderModule) friendFinderModule->saveCurrentPlace();
@@ -2000,6 +2101,15 @@ void menuHandler::handleMenuSwitch(OLEDDisplay *display)
         test_count = 0;
     switch (menuQueue) {
     case menu_none:
+        break;
+    case neon_pebble_main_menu:
+        neonPebbleMainMenu();
+        break;
+    case neon_pebble_meet_menu:
+        neonPebbleMeetMenu();
+        break;
+    case neon_pebble_settings_menu:
+        neonPebbleSettingsMenu();
         break;
     case lora_Menu:
         loraMenu();
