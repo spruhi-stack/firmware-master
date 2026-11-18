@@ -9,6 +9,9 @@ class menuHandler
   public:
     enum screenMenus {
         menu_none,
+        neon_pebble_main_menu,
+        neon_pebble_meet_menu,
+        neon_pebble_settings_menu,
         lora_Menu,
         lora_picker,
         device_role_picker,
@@ -72,6 +75,9 @@ class menuHandler
     static void TwelveHourPicker();
     static void ClockFacePicker();
     static void messageResponseMenu();
+    static void neonPebbleMainMenu();
+    static void neonPebbleMeetMenu();
+    static void neonPebbleSettingsMenu();
     static void homeBaseMenu();
     static void textMessageBaseMenu();
     static void systemBaseMenu();
