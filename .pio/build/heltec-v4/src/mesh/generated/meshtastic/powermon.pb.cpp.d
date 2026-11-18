@@ -1,0 +1,4 @@
+.pio/build/heltec-v4/src/mesh/generated/meshtastic/powermon.pb.cpp.o: \
+ src/mesh/generated/meshtastic/powermon.pb.cpp \
+ src/mesh/generated/meshtastic/powermon.pb.h \
+ .pio/libdeps/heltec-v4/Nanopb/pb.h
