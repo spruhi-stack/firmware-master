@@ -17,6 +17,7 @@ static const char* guessDeviceName(uint8_t addr) {
         case 0x18: return "LIS3DH ACC (0x18)";
         case 0x19: return "LIS3DH ACC (0x19)";
         case 0x3C: return "SSD1306 OLED (0x3C)";
+        case 0x2C: return "QMC5883P MAG";
         default: return "";
     }
 }
@@ -105,6 +106,38 @@ bool MagnetometerModule::qmcInit(TwoWire &bus, uint8_t addr) {
     LOG_INFO("[Magnetometer] QMC init on %s @0x%02X",
              (&bus == &Wire) ? "Wire" : "Wire1", addr);
 
+
+    // QMC5883P has a different register map from QMC5883L.
+    if (addr == 0x2C) {
+        uint8_t chipId = 0;
+
+        if (!qmcReadRegs(bus, addr, 0x00, &chipId, 1)) {
+            LOG_INFO("[Magnetometer] QMC5883P ID read failed");
+            return false;
+        }
+
+        LOG_INFO("[Magnetometer] QMC5883P chip ID = 0x%02X",
+                 chipId);
+
+        if (chipId != 0x80) {
+            LOG_INFO("[Magnetometer] Unexpected QMC5883P chip ID");
+            return false;
+        }
+
+        // XYZ sign configuration
+        if (!qmcWriteReg(bus, addr, 0x29, 0x06) ||
+            !qmcWriteReg(bus, addr, 0x0B, 0x08) ||
+            !qmcWriteReg(bus, addr, 0x0A, 0xCD)) {
+            LOG_INFO("[Magnetometer] QMC5883P configuration failed");
+            return false;
+        }
+
+        delay(20);
+        LOG_INFO("[Magnetometer] QMC5883P configured successfully");
+        return true;
+    }
+
+
     // Soft reset
     if (!qmcWriteReg(bus, addr, QMC_REG_CTRL2, 0x80)) {
         LOG_INFO("[Magnetometer] QMC write CTRL2 (soft reset) failed");
@@ -136,7 +169,9 @@ bool MagnetometerModule::qmcInit(TwoWire &bus, uint8_t addr) {
 
 bool MagnetometerModule::qmcReadRaw(TwoWire &bus, uint8_t addr, int16_t &x, int16_t &y, int16_t &z) {
     uint8_t raw[6];
-    if (!qmcReadRegs(bus, addr, QMC_REG_X_L, raw, sizeof(raw))) return false;
+    uint8_t dataReg = (addr == 0x2C) ? 0x01 : QMC_REG_X_L;
+
+if (!qmcReadRegs(bus, addr, dataReg, raw, sizeof(raw))) return false;
     // QMC is little-endian: X_L, X_H, Y_L, Y_H, Z_L, Z_H
     x = (int16_t)((raw[1] << 8) | raw[0]);
     y = (int16_t)((raw[3] << 8) | raw[2]);
@@ -150,7 +185,7 @@ bool MagnetometerModule::selectMagOnEitherBus() {
         const char* tag;
         uint8_t addr;
     } probes[] = {
-        { &Wire,  "Wire",  0x0D }, { &Wire,  "Wire",  0x0C }, { &Wire,  "Wire",  0x1E },
+        { &Wire1, "Wire1", 0x2C },{ &Wire,  "Wire",  0x0D }, { &Wire,  "Wire",  0x0C }, { &Wire,  "Wire",  0x1E },
         { &Wire1, "Wire1", 0x0D }, { &Wire1, "Wire1", 0x0C }, { &Wire1, "Wire1", 0x1E },
     };
 
