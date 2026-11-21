@@ -17,19 +17,33 @@
 
 // ------------ Active bus pins are defined in variant.h ------------
 // NOTE: The platform firmware already starts these two I2C masters at boot.
-#ifndef I2C0_SDA_PIN   // Wire (I2C0) - Primary bus, usually for the screen
-#define I2C0_SDA_PIN I2C_SDA
-#endif
-#ifndef I2C0_SCL_PIN
-#define I2C0_SCL_PIN I2C_SCL
+
+
+#ifndef I2C0_SDA_PIN
+  #define I2C0_SDA_PIN I2C_SDA
 #endif
 
-#ifndef I2C1_SDA_PIN   
-#define I2C1_SDA_PIN I2C_SDA1
+#ifndef I2C0_SCL_PIN
+  #define I2C0_SCL_PIN I2C_SCL
 #endif
+
+#ifndef I2C1_SDA_PIN
+  #ifdef I2C_SDA1
+    #define I2C1_SDA_PIN I2C_SDA1
+  #else
+    #define I2C1_SDA_PIN -1
+  #endif
+#endif
+
 #ifndef I2C1_SCL_PIN
-#define I2C1_SCL_PIN I2C_SCL1
+  #ifdef I2C_SCL1
+    #define I2C1_SCL_PIN I2C_SCL1
+  #else
+    #define I2C1_SCL_PIN -1
+  #endif
 #endif
+
+
 // --------------------------------------------------------------
 
 class MagnetometerModule
