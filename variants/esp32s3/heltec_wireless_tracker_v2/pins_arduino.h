@@ -17,8 +17,10 @@ static const uint8_t LED_BUILTIN = 18;
 static const uint8_t TX = 43;
 static const uint8_t RX = 44;
 
-static const uint8_t SDA = 5;
-static const uint8_t SCL = 6;
+// GPIO5 controls the KCT8103L RF front-end; don't use it for I2C.
+// Wire is reserved for the external Neon Pebble magnetometer.
+static const uint8_t SDA = 6;
+static const uint8_t SCL = 17;
 
 static const uint8_t SS = 8;
 static const uint8_t MOSI = 10;
