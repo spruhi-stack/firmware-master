@@ -5,6 +5,9 @@
 // I2C
 #define I2C_SDA SDA
 #define I2C_SCL SCL
+// Optional second bus for an external LIS3DH; primary compass uses GPIO6/17.
+#define I2C_SDA1 15
+#define I2C_SCL1 16
 
 // ST7735S TFT LCD
 #define ST7735S 1 // there are different (sub-)versions of ST7735
@@ -72,7 +75,10 @@
 #define SX126X_DIO2_AS_RF_SWITCH
 #define SX126X_DIO3_TCXO_VOLTAGE 1.8
 
-#define USE_GC1109_PA   // We have a GC1109 power amplifier+attenuator
-#define LORA_PA_POWER 7 // power en
-#define LORA_PA_EN 4
-#define LORA_PA_TX_EN 46 // enable tx
+// Wireless Tracker V2.3 KCT8103L RF front end (not the older GC1109).
+// SX1262 DIO2 drives the CPS TX/RX path automatically.
+// GPIO4 = CSD (enable); GPIO5 = CTX (TX=HIGH, RX LNA=LOW).
+#define USE_KCT8103L_PA
+#define LORA_PA_POWER 7
+#define LORA_KCT8103L_PA_CSD 4
+#define LORA_KCT8103L_PA_CTX 5
