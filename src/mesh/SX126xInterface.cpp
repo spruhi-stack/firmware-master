@@ -52,14 +52,23 @@ template <typename T> bool SX126xInterface<T>::init()
     pinMode(SX126X_POWER_EN, OUTPUT);
 #endif
 
-#if defined(USE_GC1109_PA)
+#if defined(USE_GC1109_PA) || defined(USE_KCT8103L_PA)
     pinMode(LORA_PA_POWER, OUTPUT);
     digitalWrite(LORA_PA_POWER, HIGH);
 
+#if defined(USE_GC1109_PA)
     pinMode(LORA_PA_EN, OUTPUT);
     digitalWrite(LORA_PA_EN, LOW);
     pinMode(LORA_PA_TX_EN, OUTPUT);
     digitalWrite(LORA_PA_TX_EN, LOW);
+#elif defined(USE_KCT8103L_PA)
+    // KCT8103L: DIO2 drives CPS. GPIO4 enables the FEM; GPIO5 selects
+    // transmit PA (HIGH) or the receive LNA (LOW).
+    pinMode(LORA_KCT8103L_PA_CSD, OUTPUT);
+    digitalWrite(LORA_KCT8103L_PA_CSD, LOW);
+    pinMode(LORA_KCT8103L_PA_CTX, OUTPUT);
+    digitalWrite(LORA_KCT8103L_PA_CTX, LOW);
+#endif
 #endif
 
 #if ARCH_PORTDUINO
@@ -360,6 +369,10 @@ template <typename T> bool SX126xInterface<T>::sleep()
      */
     digitalWrite(LORA_PA_EN, LOW);
     digitalWrite(LORA_PA_TX_EN, LOW);
+#elif defined(USE_KCT8103L_PA)
+    // Leave VFEM supply on, but disable the FEM itself during deep sleep.
+    digitalWrite(LORA_KCT8103L_PA_CSD, LOW);
+    digitalWrite(LORA_KCT8103L_PA_CTX, LOW);
 #endif
     return true;
 }
@@ -371,6 +384,10 @@ template <typename T> void SX126xInterface<T>::setTransmitEnable(bool txon)
     digitalWrite(LORA_PA_POWER, HIGH);
     digitalWrite(LORA_PA_EN, HIGH);
     digitalWrite(LORA_PA_TX_EN, txon ? 1 : 0);
+#elif defined(USE_KCT8103L_PA)
+    digitalWrite(LORA_PA_POWER, HIGH);
+    digitalWrite(LORA_KCT8103L_PA_CSD, HIGH);
+    digitalWrite(LORA_KCT8103L_PA_CTX, txon ? HIGH : LOW);
 #endif
 }
 
