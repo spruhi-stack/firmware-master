@@ -126,6 +126,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define TX_GAIN_LORA 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10, 10, 9, 9, 8, 7
 #endif
 
+#ifdef USE_KCT8103L_PA
+// Antenna-path gain measured for the Heltec Wireless Tracker V2 KCT8103L.
+// Unlike the GC1109 this has a higher gain at low SX1262 drive levels.
+// Keep this board-specific to avoid overstating transmit-power compliance.
+#define NUM_PA_POINTS 22
+#define TX_GAIN_LORA 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 13, 13, 13, 12, 12, 11, 10, 9, 8, 7
+#endif
+
 #ifdef STATION_G2
 #define NUM_PA_POINTS 19
 #define TX_GAIN_LORA 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 19, 19, 18, 18
