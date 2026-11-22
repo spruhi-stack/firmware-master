@@ -371,7 +371,7 @@ Screen::Screen(ScanI2C::DeviceAddress address, meshtastic_Config_DisplayConfig_O
         static_cast<SSD1306Spi *>(dispdev)->setHorizontalOffset(32);
         LOG_INFO("SSD1306 init success");
     }
-#elif defined(ST7735_CS) || defined(ILI9341_DRIVER) || defined(ILI9342_DRIVER) || defined(ST7701_CS) || defined(ST7789_CS) ||    \
+#elif defined(ST7735_CS) || defined(ST7735S) || defined(ILI9341_DRIVER) || defined(ILI9342_DRIVER) || defined(ST7701_CS) || defined(ST7789_CS) ||    \
     defined(RAK14014) || defined(HX8357_CS) || defined(ILI9488_CS) || defined(ST7796_CS)
     dispdev = new TFTDisplay(address.address, -1, -1, geometry,
                              (address.port == ScanI2C::I2CPort::WIRE1) ? HW_I2C::I2C_TWO : HW_I2C::I2C_ONE);
@@ -603,7 +603,7 @@ void Screen::setup()
     dispdev->mirrorScreen();
 #else
     if (!config.display.flip_screen) {
-#if defined(ST7701_CS) || defined(ST7735_CS) || defined(ILI9341_DRIVER) || defined(ILI9342_DRIVER) || defined(ST7789_CS) ||      \
+#if defined(ST7701_CS) || defined(ST7735_CS) || defined(ST7735S) || defined(ILI9341_DRIVER) || defined(ILI9342_DRIVER) || defined(ST7789_CS) ||      \
     defined(RAK14014) || defined(HX8357_CS) || defined(ILI9488_CS) || defined(ST7796_CS)
         static_cast<TFTDisplay *>(dispdev)->flipScreenVertically();
 #elif defined(USE_ST7789)
@@ -735,7 +735,7 @@ int32_t Screen::runOnce()
     // Show boot screen for first logo_timeout seconds, then switch to normal operation.
     // serialSinceMsec adjusts for additional serial wait time during nRF52 bootup
     static bool showingBootScreen = true;
-#if defined(HELTEC_V4)
+#if defined(HELTEC_V4) || defined(HELTEC_WIRELESS_TRACKER_V2)
     // Start Pebble only when the LoRa region was already configured before
     // this boot's normal onboarding. A newly configured unit remains in the
     // Meshtastic UI until its next restart.
@@ -745,7 +745,7 @@ int32_t Screen::runOnce()
         LOG_INFO("Done with boot screen");
         stopBootScreen();
         showingBootScreen = false;
-#if defined(HELTEC_V4)
+#if defined(HELTEC_V4) || defined(HELTEC_WIRELESS_TRACKER_V2)
         if (config.lora.region != meshtastic_Config_LoRaConfig_RegionCode_UNSET &&
             rebootAtMsec == 0 && !error_code) {
             neonPebbleStartupPending = true;
@@ -841,7 +841,7 @@ int32_t Screen::runOnce()
         }
     }
 
-#if defined(HELTEC_V4)
+#if defined(HELTEC_V4) || defined(HELTEC_WIRELESS_TRACKER_V2)
     // After queued STOP_BOOT_SCREEN has installed the regular frames, present
     // Neon Pebble's menu. Never cover the initial Meshtastic region picker.
     if (neonPebbleStartupPending && screenOn &&
