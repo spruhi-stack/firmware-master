@@ -3,8 +3,16 @@
 #define _VARIANT_HELTEC_WIRELESS_TRACKER
 
 // I2C
+
+// Primary I2C bus
 #define I2C_SDA SDA
 #define I2C_SCL SCL
+
+// Secondary I2C bus for QMC5883P compass
+// and optional LIS3DH accelerometer
+#define I2C_SDA1 15
+#define I2C_SCL1 16
+
 
 // ST7735S TFT LCD
 #define ST7735S 1 // there are different (sub-)versions of ST7735
