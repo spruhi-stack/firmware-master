@@ -239,8 +239,8 @@ void MagnetometerModule::initSensors() {
     LOG_INFO("[Magnetometer] ===== initSensors() START =====");
     logPlatformAndPinsOnce();
 
-    scanI2CBus(Wire,  "Wire  (I2C0 / OLED+MAG?)",  I2C0_SDA_PIN, I2C0_SCL_PIN);
-    scanI2CBus(Wire1, "Wire1 (I2C1 / ACC+MAG?)",  I2C1_SDA_PIN, I2C1_SCL_PIN);
+    //scanI2CBus(Wire,  "Wire  (I2C0 / OLED+MAG?)",  I2C0_SDA_PIN, I2C0_SCL_PIN);
+    //scanI2CBus(Wire1, "Wire1 (I2C1 / ACC+MAG?)",  I2C1_SDA_PIN, I2C1_SCL_PIN);
 
     // Detect and bind QMC on either bus
     haveMag = selectMagOnEitherBus();
@@ -576,8 +576,8 @@ void MagnetometerModule::explainWhyHeadingInvalidOnce() {
     LOG_INFO("[Magnetometer]     Wire  (I2C0): SDA=%d SCL=%d", I2C0_SDA_PIN, I2C0_SCL_PIN);
     LOG_INFO("[Magnetometer]     Wire1 (I2C1): SDA=%d SCL=%d", I2C1_SDA_PIN, I2C1_SCL_PIN);
 
-    scanI2CBus(Wire,  "Wire (diag)",  I2C0_SDA_PIN, I2C0_SCL_PIN);
-    scanI2CBus(Wire1, "Wire1 (diag)", I2C1_SDA_PIN, I2C1_SCL_PIN);
+    //scanI2CBus(Wire,  "Wire (diag)",  I2C0_SDA_PIN, I2C0_SCL_PIN);
+    //scanI2CBus(Wire1, "Wire1 (diag)", I2C1_SDA_PIN, I2C1_SCL_PIN);
 
     LOG_INFO("[Magnetometer]   Expect MAG at 0x0D/0x0C/0x1E. If not present on either bus, check power/SDA/SCL.");
 }
