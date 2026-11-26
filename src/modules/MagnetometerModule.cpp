@@ -383,7 +383,7 @@ if (absoluteHeading) {
 bool temporaryDrop =
     bnoNorthAcquired &&
     fullyCalibrated &&
-    (millis() - bnoLastValidMs < 5000);
+    (millis() - bnoLastValidMs < 60000);
 
 headingIsValid =
     validReading &&
