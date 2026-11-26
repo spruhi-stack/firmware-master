@@ -359,12 +359,35 @@ int32_t MagnetometerModule::runBno055() {
     bnoRawHeading = orientation.x();
 
     // Only use absolute heading once calibrated
-    headingIsValid =
-        bnoSys > 0 &&
-        bnoMag > 0 &&
-        isfinite(bnoRawHeading) &&
-        bnoRawHeading >= 0.0f &&
-        bnoRawHeading <= 360.0f;
+   bool validReading =
+    isfinite(bnoRawHeading) &&
+    bnoRawHeading >= 0.0f &&
+    bnoRawHeading <= 360.0f;
+
+bool fullyCalibrated =
+    bnoGyro == 3 &&
+    bnoAccel == 3 &&
+    bnoMag == 3;
+
+bool absoluteHeading =
+    validReading &&
+    bnoSys > 0 &&
+    bnoMag > 0;
+
+if (absoluteHeading) {
+    bnoNorthAcquired = true;
+    bnoLastValidMs = millis();
+}
+
+// Tolerate temporary SYS calibration drops
+bool temporaryDrop =
+    bnoNorthAcquired &&
+    fullyCalibrated &&
+    (millis() - bnoLastValidMs < 5000);
+
+headingIsValid =
+    validReading &&
+    (absoluteHeading || temporaryDrop);
 
     if (headingIsValid) {
         headingDegrees = wrap360(
@@ -377,13 +400,15 @@ int32_t MagnetometerModule::runBno055() {
     if (millis() - lastLogMs >= 2000) {
 
         LOG_INFO(
-            "[BNO055] Head=%.1f SYS=%u G=%u A=%u M=%u",
-            headingDegrees,
-            bnoSys,
-            bnoGyro,
-            bnoAccel,
-            bnoMag
-        );
+    "[BNO055] Raw=%.1f Head=%.1f SYS=%u G=%u A=%u M=%u Valid=%u",
+    bnoRawHeading,
+    headingDegrees,
+    bnoSys,
+    bnoGyro,
+    bnoAccel,
+    bnoMag,
+    (unsigned)headingIsValid
+);
 
         // Automatically save once fully calibrated
         if (!bnoCalSaved &&
@@ -828,7 +853,7 @@ bool MagnetometerModule::isNorthFlipped() const {
 /* ---------- Prefs ---------- */
 void MagnetometerModule::loadPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/true)) {
+    if (!prefs.begin(bno ? "magbno" : "magmod", /*rw=*/true)) {
         LOG_INFO("[Magnetometer] NVS open failed; using defaults.");
         return;
     }
@@ -864,7 +889,7 @@ void MagnetometerModule::loadPrefs() {
 
 void MagnetometerModule::saveFlipNorthPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/false)) return;
+    if (!prefs.begin(bno ? "magbno" : "magmod", /*rw=*/false)) return;
     prefs.putBool("flip_n", flipNorth);
     prefs.end();
 #endif
@@ -872,7 +897,7 @@ void MagnetometerModule::saveFlipNorthPrefs() {
 
 void MagnetometerModule::saveCalPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/false)) return;
+    if (!prefs.begin(bno ? "magbno" : "magmod", /*rw=*/false)) return;
     prefs.putFloat("bx", biasX);
     prefs.putFloat("by", biasY);
     prefs.putFloat("bz", biasZ);
@@ -885,7 +910,7 @@ void MagnetometerModule::saveCalPrefs() {
 
 void MagnetometerModule::saveNorthPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/false)) return;
+    if (!prefs.begin(bno ? "magbno" : "magmod", /*rw=*/false)) return;
     prefs.putFloat("north", userZeroDeg);
     prefs.end();
 #endif
@@ -893,7 +918,7 @@ void MagnetometerModule::saveNorthPrefs() {
 
 void MagnetometerModule::saveSoftIronPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/false)) return;
+    if (!prefs.begin(bno ? "magbno" : "magmod", /*rw=*/false)) return;
     prefs.putBool ("si_ok", siValid);
     prefs.putBool ("flip_y", flipYafterCal);
     prefs.putFloat("si_bx", siBx);

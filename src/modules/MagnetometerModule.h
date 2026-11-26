@@ -133,6 +133,8 @@ uint8_t bnoAccel = 0;
 uint8_t bnoMag = 0;
 
 bool bnoCalSaved = false;
+bool bnoNorthAcquired = false;
+uint32_t bnoLastValidMs = 0;
 bool bnoNeedsRestart = false;
 
 bool initBno055();
