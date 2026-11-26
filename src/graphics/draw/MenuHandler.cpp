@@ -1811,8 +1811,17 @@ void menuHandler::friendFinderCalMenu()
     // Build the menu options in a logical, fixed order
     options.push_back("Close");
     options.push_back("Back to Main Menu");
-    options.push_back("Figure-8 Cal");
-    options.push_back("Flat-Spin Cal");
+bool usingBno =
+    magnetometerModule &&
+    magnetometerModule->isBno055();
+
+options.push_back(
+    usingBno ? "BNO055 Cal Status" : "Figure-8 Cal"
+);
+
+options.push_back(
+    usingBno ? "Save BNO055 Cal" : "Flat-Spin Cal"
+);
     options.push_back("Set North Here");
     options.push_back("Clear North Offset");
     options.push_back("Clear All Calibration");
@@ -1854,10 +1863,23 @@ void menuHandler::friendFinderCalMenu()
                 screen->showSimpleBanner("No magnetometer", 1200);
                 break;
             }
-            if (selected == 2) {
-                magnetometerModule->startFigure8Calibration();
-            } else if (selected == 3) {
-                magnetometerModule->startFlatSpinCalibration();
+if (selected == 2) {
+    if (magnetometerModule->isBno055()) {
+        screen->showSimpleBanner("See compass scores", 1200);
+    } else {
+        magnetometerModule->startFigure8Calibration();
+    }
+} else if (selected == 3) {
+    if (magnetometerModule->isBno055()) {
+        bool saved = magnetometerModule->saveBnoCalibration();
+
+        screen->showSimpleBanner(
+            saved ? "Calibration saved" : "Not ready to save",
+            1200
+        );
+    } else {
+        magnetometerModule->startFlatSpinCalibration();
+    }
             } else if (selected == 4) {
                 if (magnetometerModule->hasHeading()) {
                     magnetometerModule->setNorthHere();
@@ -1963,7 +1985,12 @@ void menuHandler::friendFinderClearCalConfirmMenu()
         if (selected == 1) { // Yes
             if (magnetometerModule) {
                 magnetometerModule->clearAllCalibration();
-                screen->showSimpleBanner("All calibration cleared", 1200);
+                screen->showSimpleBanner(
+    magnetometerModule->isBno055()
+        ? "Restart to recalibrate"
+        : "All calibration cleared",
+    1200
+);
             }
         }
         // If "No" is selected, the banner simply closes.

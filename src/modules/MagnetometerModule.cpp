@@ -232,6 +232,43 @@ void MagnetometerModule::applySoftIron2D(float &fx, float &fy) {
     fx = ox; fy = oy;
 }
 
+bool MagnetometerModule::initBno055() {
+    static Adafruit_BNO055 sensor28(55, 0x28, &Wire1);
+    static Adafruit_BNO055 sensor29(55, 0x29, &Wire1);
+
+    Adafruit_BNO055 *sensors[] = {
+        &sensor28, &sensor29
+    };
+
+    const uint8_t addresses[] = {
+        0x28, 0x29
+    };
+
+    for (int i = 0; i < 2; i++) {
+        uint8_t addr = addresses[i];
+        uint8_t chipID = 0;
+
+        if (!qmcReadRegs(Wire1, addr, 0x00, &chipID, 1))
+            continue;
+
+        if (chipID != 0xA0)
+            continue;
+
+        LOG_INFO("[BNO055] Found at 0x%02X", addr);
+
+        Wire1.setClock(100000);
+
+        if (sensors[i]->begin(OPERATION_MODE_NDOF)) {
+            bno = sensors[i];
+
+            LOG_INFO("[BNO055] Initialised successfully");
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void MagnetometerModule::initSensors() {
 
     sensorsInitialized = false;
@@ -242,6 +279,21 @@ void MagnetometerModule::initSensors() {
     scanI2CBus(Wire,  "Wire  (I2C0 / OLED+MAG?)",  I2C0_SDA_PIN, I2C0_SCL_PIN);
     scanI2CBus(Wire1, "Wire1 (I2C1 / ACC+MAG?)",  I2C1_SDA_PIN, I2C1_SCL_PIN);
 
+    // Prefer BNO055 when connected
+if (initBno055()) {
+    haveMag = true;
+    haveAccel = true;
+
+    loadPrefs();
+    loadBnoCalibration();
+
+    headingIsValid = false;
+    sensorsInitialized = true;
+
+    LOG_INFO("[Magnetometer] Using BNO055");
+
+    return;
+}
     // Detect and bind QMC on either bus
     haveMag = selectMagOnEitherBus();
     if (haveMag) {
@@ -286,6 +338,69 @@ void MagnetometerModule::setup() {
     initSensors();
 }
 
+int32_t MagnetometerModule::runBno055() {
+    if (bnoNeedsRestart) {
+        headingIsValid = false;
+        return 500;
+    }
+
+    // Read BNO055 calibration status
+    bno->getCalibration(
+        &bnoSys,
+        &bnoGyro,
+        &bnoAccel,
+        &bnoMag
+    );
+
+    // Read fully fused orientation
+    imu::Vector<3> orientation =
+        bno->getVector(Adafruit_BNO055::VECTOR_EULER);
+
+    bnoRawHeading = orientation.x();
+
+    // Only use absolute heading once calibrated
+    headingIsValid =
+        bnoSys > 0 &&
+        bnoMag > 0 &&
+        isfinite(bnoRawHeading) &&
+        bnoRawHeading >= 0.0f &&
+        bnoRawHeading <= 360.0f;
+
+    if (headingIsValid) {
+        headingDegrees = wrap360(
+            bnoRawHeading - userZeroDeg +
+            (flipNorth ? 180.0f : 0.0f)
+        );
+    }
+
+    // Diagnostics every 2 seconds
+    if (millis() - lastLogMs >= 2000) {
+
+        LOG_INFO(
+            "[BNO055] Head=%.1f SYS=%u G=%u A=%u M=%u",
+            headingDegrees,
+            bnoSys,
+            bnoGyro,
+            bnoAccel,
+            bnoMag
+        );
+
+        // Automatically save once fully calibrated
+        if (!bnoCalSaved &&
+            bnoSys == 3 &&
+            bnoGyro == 3 &&
+            bnoAccel == 3 &&
+            bnoMag == 3) {
+
+            saveBnoCalibration();
+        }
+
+        lastLogMs = millis();
+    }
+
+    return 50;
+}
+
 int32_t MagnetometerModule::runOnce() {
     // If the manager didn’t call setup(), self-init on first run.
     static bool warnedOnce = false;
@@ -298,7 +413,9 @@ int32_t MagnetometerModule::runOnce() {
         LOG_INFO("[Magnetometer] Sensors not initialized yet; will try initSensors() now.");
         initSensors();
     }
-
+if (bno != nullptr) {
+    return runBno055();
+}
     if (!headingIsValid) {
         explainWhyHeadingInvalidOnce();
         return 500; // wait a bit and try again
@@ -537,6 +654,34 @@ float MagnetometerModule::getHeading() {
 }
 
 void MagnetometerModule::clearAllCalibration() {
+
+    if (bno) {
+
+#if MAGMOD_HAVE_NVS
+    if (prefs.begin("magbno", false)) {
+        if (!prefs.clear()) {
+            LOG_ERROR("[BNO055] Failed to clear saved calibration");
+            prefs.end();
+            return;
+        }
+
+        prefs.end();
+    } else {
+        LOG_ERROR("[BNO055] Cannot open calibration storage");
+        return;
+    }
+#endif
+
+    userZeroDeg = 0.0f;
+    flipNorth = false;
+    bnoCalSaved = false;
+    headingIsValid = false;
+    bnoNeedsRestart = true;
+
+    LOG_INFO("[BNO055] Saved calibration cleared. Restart device.");
+
+    return;
+}
     LOG_INFO("[Magnetometer] Clearing ALL calibration data.");
 
     // Clear Figure-8 (Hard-iron) calibration
@@ -586,6 +731,10 @@ void MagnetometerModule::explainWhyHeadingInvalidOnce() {
 
 // Figure-8
 void MagnetometerModule::startFigure8Calibration(uint32_t durationMs) {
+    if (bno) {
+    LOG_INFO("[BNO055] Automatic calibration active");
+    return;
+}
     if (!haveMag) {
         LOG_INFO("[Magnetometer] startFigure8Calibration(): no MAG present.");
         return;
@@ -606,6 +755,10 @@ uint8_t MagnetometerModule::getCalibrationPercent() const {
 
 // Flat-spin
 void MagnetometerModule::startFlatSpinCalibration(uint32_t durationMs) {
+    if (bno) {
+    LOG_INFO("[BNO055] Automatic calibration active");
+    return;
+}
     if (!haveMag) {
         LOG_INFO("[Magnetometer] startFlatSpinCalibration(): no MAG present.");
         return;
@@ -635,7 +788,14 @@ void MagnetometerModule::setNorthHere() {
         return;
     }
     // Current displayed heading should become 0°
+    if (bno) {
+    userZeroDeg = wrap360(
+        bnoRawHeading +
+        (flipNorth ? 180.0f : 0.0f)
+    );
+} else {
     userZeroDeg = headingDegrees;
+};
     saveNorthPrefs();
     LOG_INFO("[Magnetometer] Set North Here: userZeroDeg=%.2f", userZeroDeg);
 }
@@ -668,7 +828,7 @@ bool MagnetometerModule::isNorthFlipped() const {
 /* ---------- Prefs ---------- */
 void MagnetometerModule::loadPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin("magmod", /*rw=*/true)) {
+    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/true)) {
         LOG_INFO("[Magnetometer] NVS open failed; using defaults.");
         return;
     }
@@ -704,7 +864,7 @@ void MagnetometerModule::loadPrefs() {
 
 void MagnetometerModule::saveFlipNorthPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin("magmod", /*rw=*/false)) return;
+    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/false)) return;
     prefs.putBool("flip_n", flipNorth);
     prefs.end();
 #endif
@@ -712,7 +872,7 @@ void MagnetometerModule::saveFlipNorthPrefs() {
 
 void MagnetometerModule::saveCalPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin("magmod", /*rw=*/false)) return;
+    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/false)) return;
     prefs.putFloat("bx", biasX);
     prefs.putFloat("by", biasY);
     prefs.putFloat("bz", biasZ);
@@ -725,7 +885,7 @@ void MagnetometerModule::saveCalPrefs() {
 
 void MagnetometerModule::saveNorthPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin("magmod", /*rw=*/false)) return;
+    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/false)) return;
     prefs.putFloat("north", userZeroDeg);
     prefs.end();
 #endif
@@ -733,7 +893,7 @@ void MagnetometerModule::saveNorthPrefs() {
 
 void MagnetometerModule::saveSoftIronPrefs() {
 #if MAGMOD_HAVE_NVS
-    if (!prefs.begin("magmod", /*rw=*/false)) return;
+    if (!prefs.begin(bno ? "magbno" : "magmod",, /*rw=*/false)) return;
     prefs.putBool ("si_ok", siValid);
     prefs.putBool ("flip_y", flipYafterCal);
     prefs.putFloat("si_bx", siBx);
@@ -752,4 +912,76 @@ void MagnetometerModule::dumpCalToLog() {
     LOG_INFO("[DUMP] align_ok=1 align_deg=%.2f", userZeroDeg);
     LOG_INFO("[DUMP] si_ok=%d flip_y=%d bx=%.2f by=%.2f S=[[%.5f %.5f][%.5f %.5f]]",
              siValid ? 1 : 0, flipYafterCal ? 1 : 0, siBx, siBy, siSxx, siSxy, siSyx, siSyy);
+}
+
+bool MagnetometerModule::saveBnoCalibration() {
+#if MAGMOD_HAVE_NVS
+
+    if (!bno || bnoNeedsRestart)
+        return false;
+
+    adafruit_bno055_offsets_t offsets;
+
+    if (!bno->getSensorOffsets(offsets)) {
+        LOG_INFO("[BNO055] Not fully calibrated");
+        return false;
+    }
+
+    if (!prefs.begin("magbno", false))
+        return false;
+
+    size_t written = prefs.putBytes(
+        "offsets",
+        &offsets,
+        sizeof(offsets)
+    );
+
+    prefs.end();
+
+    bnoCalSaved = written == sizeof(offsets);
+
+    if (bnoCalSaved) {
+        LOG_INFO("[BNO055] Calibration saved");
+    }
+
+    return bnoCalSaved;
+
+#else
+    return false;
+#endif
+}
+
+
+void MagnetometerModule::loadBnoCalibration() {
+#if MAGMOD_HAVE_NVS
+
+    if (!bno)
+        return;
+
+    adafruit_bno055_offsets_t offsets;
+
+    if (!prefs.begin("magbno", true))
+        return;
+
+    bool loaded = false;
+
+    if (prefs.getBytesLength("offsets") == sizeof(offsets)) {
+        loaded = prefs.getBytes(
+            "offsets",
+            &offsets,
+            sizeof(offsets)
+        ) == sizeof(offsets);
+    }
+
+    prefs.end();
+
+    if (loaded) {
+        bno->setSensorOffsets(offsets);
+
+        bnoCalSaved = true;
+
+        LOG_INFO("[BNO055] Calibration restored");
+    }
+
+#endif
 }

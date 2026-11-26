@@ -927,10 +927,38 @@ void FriendFinderModule::drawSimpleCompass(OLEDDisplay *d, int16_t x, int16_t y,
     d->setFont(FONT_SMALL);
     d->drawString(x + W / 2, y, "Compass");
 
+    if (magnetometerModule && magnetometerModule->isBno055()) {
+    uint8_t sys, gyro, accel, mag;
+
+    magnetometerModule->getBnoCalibration(
+        sys, gyro, accel, mag
+    );
+
+    char calBuf[32];
+
+    snprintf(
+        calBuf, sizeof(calBuf),
+        "S:%u G:%u A:%u M:%u",
+        sys, gyro, accel, mag
+    );
+
+    d->drawString(
+        x + W / 2,
+        y + H - FONT_HEIGHT_SMALL,
+        calBuf
+    );
+}
+
     if (!magnetometerModule || !magnetometerModule->hasHeading()) {
         d->setFont(FONT_SMALL);
         d->setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
-        d->drawString(x + W / 2, y + H / 2, "Magnetometer\nnot detected.");
+        d->drawString(
+    x + W / 2,
+    y + H / 2,
+    magnetometerModule && magnetometerModule->isBno055()
+        ? "Waiting for\ncalibrated heading"
+        : "Magnetometer\nnot detected."
+);
         return;
     }
 

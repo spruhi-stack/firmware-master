@@ -7,6 +7,7 @@
 #include <Wire.h>
 #include <Adafruit_LIS3DH.h>
 #include <Adafruit_AHRS.h>
+#include <Adafruit_BNO055.h>
 
 #if defined(ARDUINO_ARCH_ESP32)
   #include <Preferences.h>
@@ -61,6 +62,18 @@ public:
     bool  hasHeading();
     float getHeading();
 
+    // BNO055 public interface
+bool isBno055() const { return bno != nullptr; }
+bool saveBnoCalibration();
+
+void getBnoCalibration(uint8_t &sys, uint8_t &gyro,
+                       uint8_t &accel, uint8_t &mag) const {
+    sys = bnoSys;
+    gyro = bnoGyro;
+    accel = bnoAccel;
+    mag = bnoMag;
+}
+
     // Figure-8 calibration (3D hard-iron + per-axis scales)
     void    startFigure8Calibration(uint32_t durationMs = 15000);
     bool    isCalibrating() const { return calibrating; }
@@ -99,6 +112,8 @@ private:
     bool haveMag = false;
     bool haveAccel = false;
 
+
+
     // Which bus/address the QMC5883L is on
     TwoWire* magBus = nullptr;  // points to Wire or Wire1 once detected
     uint8_t  magAddr = 0x0D;    // 0x0D official, 0x0C clones, 0x1E HMC/LIS3MDL-like
@@ -106,6 +121,23 @@ private:
     // Sensor instances
     Adafruit_LIS3DH lis;       // bound to Wire1 (I2C1)
     Adafruit_Madgwick filter;
+
+    // BNO055 sensor and calibration
+Adafruit_BNO055 *bno = nullptr;
+
+float bnoRawHeading = 0.0f;
+
+uint8_t bnoSys = 0;
+uint8_t bnoGyro = 0;
+uint8_t bnoAccel = 0;
+uint8_t bnoMag = 0;
+
+bool bnoCalSaved = false;
+bool bnoNeedsRestart = false;
+
+bool initBno055();
+int32_t runBno055();
+void loadBnoCalibration();
 
     // Logging cadence
     uint32_t lastLogMs = 0;
